@@ -25,18 +25,31 @@ from google.oauth2.service_account import Credentials
 
 # ============================================================
 # CONFIGURACIÓN AUTOMÁTICA DE FECHAS
-# Período: lunes → domingo de la SEMANA ANTERIOR
-# El script se ejecuta cada lunes a las 12:30 a.m. (hora Colombia)
+# Reporte DIARIO
+# Extrae todos los registros del día anterior
 # ============================================================
+
 hoy = datetime.today()
 
-# Lunes de la semana ANTERIOR (weekday=0 → lunes)
-lunes_semana_anterior = hoy - timedelta(days=hoy.weekday() + 7)
-# Domingo de esa misma semana anterior
-domingo_semana_anterior = lunes_semana_anterior + timedelta(days=6)
+dia_anterior = hoy - timedelta(days=1)
 
-FECHA_INICIO = os.environ.get("OVERRIDE_FECHA_INICIO") or lunes_semana_anterior.strftime("%Y-%m-%d")
-FECHA_FIN    = os.environ.get("OVERRIDE_FECHA_FIN")    or domingo_semana_anterior.strftime("%Y-%m-%d")
+FECHA_INICIO = (
+    os.environ.get("OVERRIDE_FECHA_INICIO")
+    or dia_anterior.strftime("%Y-%m-%d")
+)
+
+FECHA_FIN = (
+    os.environ.get("OVERRIDE_FECHA_FIN")
+    or dia_anterior.strftime("%Y-%m-%d")
+)
+
+print("=" * 60)
+print("📅 CONFIGURACIÓN DEL REPORTE")
+print(f"📅 Hoy            : {hoy.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"📅 Día anterior   : {dia_anterior.strftime('%Y-%m-%d')}")
+print(f"📅 FECHA_INICIO   : {FECHA_INICIO}")
+print(f"📅 FECHA_FIN      : {FECHA_FIN}")
+print("=" * 60)
 
 # -- Parámetros generales ─────────────────────────────────────
 FILE_ID_LLAMADAS = '1-oqtyFJ4UIwBuuMQPLKqhg3nucJxjZwkzIaXTcuz-yw'
@@ -168,10 +181,13 @@ df_base = df_base.dropna(subset=columnas_clave, how='all').reset_index(drop=True
 
 print(f"\n📋 Filas tras limpiar vacíos: {len(df_base):,}")
 
+fecha_inicio_dt = pd.to_datetime(FECHA_INICIO)
+fecha_fin_exclusiva = pd.to_datetime(FECHA_FIN) + timedelta(days=1)
+
 mask_fechas = (
     df_base[COLUMNA_FECHA].notna() &
-    (df_base[COLUMNA_FECHA] >= fecha_inicio) &
-    (df_base[COLUMNA_FECHA] <= fecha_fin)
+    (df_base[COLUMNA_FECHA] >= fecha_inicio_dt) &
+    (df_base[COLUMNA_FECHA] < fecha_fin_exclusiva)
 )
 
 if FILTRAR_POR_PERFIL:
@@ -277,6 +293,30 @@ print("=" * 55)
 if df_reporte.empty:
     print("⚠️ Sin registros en el período. Se generará un archivo vacío.")
 
+# ============================================================
+# 5.1 RESUMEN DE REGISTROS POR PROFESIONAL
+# ============================================================
+
+if COLUMNA_PROFESIONAL in df_reporte.columns and not df_reporte.empty:
+
+    resumen_profesionales = (
+        df_reporte[COLUMNA_PROFESIONAL]
+        .astype(str)
+        .str.strip()
+        .replace("", "SIN PROFESIONAL")
+        .value_counts()
+        .rename_axis("Profesional")
+        .reset_index(name="Registros")
+    )
+
+else:
+
+    resumen_profesionales = pd.DataFrame(
+        columns=["Profesional", "Registros"]
+    )
+
+print("\n📊 REGISTROS POR PROFESIONAL")
+print(resumen_profesionales.to_string(index=False))
 
 # ============================================================
 # 6. EXPORTAR A EXCEL
@@ -307,6 +347,88 @@ with open(os.environ.get("GITHUB_ENV", "/dev/null"), "a") as f:
 
 
 # ============================================================
+# 5.2 TABLA HTML PARA EL CORREO
+# ============================================================
+
+if not resumen_profesionales.empty:
+
+    filas_tabla = ""
+
+    for _, fila in resumen_profesionales.iterrows():
+
+        profesional = fila["Profesional"]
+        cantidad = int(fila["Registros"])
+
+        filas_tabla += f"""
+        <tr>
+            <td style="
+                padding:8px 12px;
+                border:1px solid #d9d9d9;
+                text-align:left;
+            ">
+                {profesional}
+            </td>
+
+            <td style="
+                padding:8px 12px;
+                border:1px solid #d9d9d9;
+                text-align:center;
+                font-weight:bold;
+            ">
+                {cantidad}
+            </td>
+        </tr>
+        """
+
+    tabla_profesionales_html = f"""
+    <table style="
+        border-collapse:collapse;
+        width:100%;
+        max-width:700px;
+        font-family:Calibri, Arial, sans-serif;
+        font-size:14px;
+        margin-top:10px;
+        margin-bottom:20px;
+    ">
+
+        <thead>
+            <tr style="background-color:#f2f2f2;">
+
+                <th style="
+                    padding:9px 12px;
+                    border:1px solid #d9d9d9;
+                    text-align:left;
+                ">
+                    Profesional
+                </th>
+
+                <th style="
+                    padding:9px 12px;
+                    border:1px solid #d9d9d9;
+                    text-align:center;
+                ">
+                    Registros
+                </th>
+
+            </tr>
+        </thead>
+
+        <tbody>
+            {filas_tabla}
+        </tbody>
+
+    </table>
+    """
+
+else:
+
+    tabla_profesionales_html = """
+    <p>
+        <strong>No se encontraron registros para el día reportado.</strong>
+    </p>
+    """
+
+# ============================================================
 # 7. ENVÍO POR CORREO — Outlook / Office 365 (STARTTLS)
 # ============================================================
 def enviar_correo(
@@ -315,6 +437,7 @@ def enviar_correo(
     total_registros: int,
     fecha_inicio: str,
     fecha_fin: str,
+    tabla_profesionales_html: str,
 ) -> None:
     """Envía el Excel generado como adjunto vía Outlook SMTP."""
 
