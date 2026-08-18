@@ -1,0 +1,74 @@
+name: Seguidor Llamadas — Reporte Semanal
+
+on:
+  # ── Ejecución automática: cada lunes a las 12:30 a.m. (hora Colombia = UTC-5) ──
+  schedule:
+    - cron: '30 5 * * 1'
+  # ── Ejecución manual desde la pestaña Actions (útil para pruebas) ──
+  workflow_dispatch:
+    inputs:
+      fecha_inicio:
+        description: 'Sobreescribir FECHA_INICIO (YYYY-MM-DD). Dejar vacío = lunes de la semana actual'
+        required: false
+        default: ''
+      fecha_fin:
+        description: 'Sobreescribir FECHA_FIN (YYYY-MM-DD). Dejar vacío = viernes de la semana actual'
+        required: false
+        default: ''
+
+jobs:
+  generar-reporte:
+    name: Extraer, exportar y enviar BD Llamadas
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descargar el código del repositorio
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      # 2. Configurar Python
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # 3. Instalar dependencias
+      - name: 📦 Instalar dependencias
+        run: pip install -r requirements.txt
+
+      # 4. Sobreescribir fechas si se pasaron manualmente (workflow_dispatch)
+      - name: 📅 Configurar fechas manuales (opcional)
+        if: ${{ github.event.inputs.fecha_inicio != '' }}
+        run: |
+          echo "OVERRIDE_FECHA_INICIO=${{ github.event.inputs.fecha_inicio }}" >> $GITHUB_ENV
+          echo "OVERRIDE_FECHA_FIN=${{ github.event.inputs.fecha_fin }}" >> $GITHUB_ENV
+
+      # 5. Ejecutar el script principal (extracción + envío de correo)
+      - name: 🚀 Ejecutar extracción y envío
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          EMAIL_REMITENTE:    ${{ secrets.EMAIL_REMITENTE }}
+          EMAIL_PASSWORD:     ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+          EMAIL_CC:           ${{ secrets.EMAIL_CC }}
+          OVERRIDE_FECHA_INICIO: ${{ env.OVERRIDE_FECHA_INICIO }}
+          OVERRIDE_FECHA_FIN:    ${{ env.OVERRIDE_FECHA_FIN }}
+        run: python seguidor_llamadas.py
+
+      # 6. Subir el Excel como artefacto descargable (retención: 30 días)
+      - name: 📤 Subir Excel como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-llamadas-${{ env.NOMBRE_EXCEL }}
+          path: output/
+          retention-days: 30
+
+      # 7. Resumen en el panel de Actions
+      - name: ✅ Resumen
+        run: |
+          echo "### Reporte generado y enviado exitosamente 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "- **Archivo:** \`${{ env.NOMBRE_EXCEL }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Período:** \`${{ env.NOMBRE_EXCEL }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Correo enviado a:** \`${{ secrets.EMAIL_DESTINATARIO }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Disponible también en:** Actions → este workflow → Artifacts" >> $GITHUB_STEP_SUMMARY
