@@ -466,7 +466,7 @@ def enviar_correo(
     
         <p>
             El presente reporte se genera con el fin de dar cumplimiento
-            a la solicitud de información de las llamadas realizadas.
+            a la solicitud de información de las llamadas realizadas por auxiliares.
         </p>
     
         <p>
