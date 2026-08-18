@@ -461,26 +461,59 @@ def enviar_correo(
     cuerpo_html = f"""
     <html>
     <body style='font-family: Calibri, Arial, sans-serif; color: #333; line-height: 1.6;'>
-        <p>Buenos dias,</p>
-        <p>El presente se hace con el fin de dar cumplimiento a la solicitud de
-        información de las llamadas realizadas.</p>
-        <p>Se incluyó la información que se solicitó en el correo de solicitud,
-        pero si se requieren cambios, agregar información o cualquier otra modificación,
-        hacérmelo saber para darle respuesta lo más pronto posible.</p>
-        <p>Tener en cuenta que la periodicidad es de <strong>lunes a domingo de la semana anterior</strong>.</p>
-        <p>Muchas gracias por su atención.</p>
-        <p>Buen inicio de semana. 😊</p>
+    
+        <p>Buenos días,</p>
+    
+        <p>
+            El presente reporte se genera con el fin de dar cumplimiento
+            a la solicitud de información de las llamadas realizadas.
+        </p>
+    
+        <p>
+            A continuación, se presenta el resumen de registros ingresados
+            durante el día <strong>{fecha_inicio}</strong>:
+        </p>
+    
+        <h3 style="margin-bottom:5px;">
+            📊 Registros por profesional
+        </h3>
+    
+        {tabla_profesionales_html}
+    
+        <p>
+            <strong>Total de registros del día: {total_registros:,}</strong>
+        </p>
+    
+        <p>
+            Se adjunta el archivo Excel con el detalle de los registros.
+            Si se requieren cambios, agregar información o cualquier otra
+            modificación, hacérmelo saber para darle respuesta lo más pronto posible.
+        </p>
+    
+        <p>
+            Muchas gracias por su atención.
+        </p>
+    
+        <p>
+            Buen día. 😊
+        </p>
+    
         <br>
+    
         <p style='font-size:0.85em; color:#888;'>
-            Período del reporte: {fecha_inicio} al {fecha_fin} &nbsp;|&nbsp;
-            Registros: {total_registros:,} &nbsp;|&nbsp;
+            Fecha del reporte: {fecha_inicio}
+            &nbsp;|&nbsp;
+            Registros: {total_registros:,}
+            &nbsp;|&nbsp;
             Archivo: {nombre_adjunto}
         </p>
+    
         <!-- FIRMA -->
-        <img src="cid:firma_digital" 
+        <img src="cid:firma_digital"
              style="width:300px; max-width:100%;">
     
         <br><br>
+    
     </body>
     </html>
     """
@@ -531,9 +564,10 @@ def enviar_correo(
 
 
 enviar_correo(
-    ruta_adjunto = ruta_completa,
-    nombre_adjunto = nombre_archivo,
-    total_registros = len(df_reporte),
-    fecha_inicio = FECHA_INICIO,
-    fecha_fin = FECHA_FIN,
+    ruta_adjunto=ruta_completa,
+    nombre_adjunto=nombre_archivo,
+    total_registros=len(df_reporte),
+    fecha_inicio=FECHA_INICIO,
+    fecha_fin=FECHA_FIN,
+    tabla_profesionales_html=tabla_profesionales_html,
 )
