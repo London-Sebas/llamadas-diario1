@@ -3,16 +3,16 @@ name: Seguidor Llamadas — Reporte Semanal
 on:
   # ── Ejecución automática: cada lunes a las 12:30 a.m. (hora Colombia = UTC-5) ──
   schedule:
-    - cron: '30 5 * * 1'
+    - cron: '30 5 * * *'
   # ── Ejecución manual desde la pestaña Actions (útil para pruebas) ──
   workflow_dispatch:
     inputs:
       fecha_inicio:
-        description: 'Sobreescribir FECHA_INICIO (YYYY-MM-DD). Dejar vacío = lunes de la semana actual'
+        description: 'Sobreescribir FECHA_INICIO (YYYY-MM-DD). Dejar vacío = día anterior'
         required: false
         default: ''
       fecha_fin:
-        description: 'Sobreescribir FECHA_FIN (YYYY-MM-DD). Dejar vacío = viernes de la semana actual'
+        description: 'Sobreescribir FECHA_FIN (YYYY-MM-DD). Dejar vacío = día anterior'
         required: false
         default: ''
 
